@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 
-const API = "https://functions.poehali.dev/f75d7445-347c-442d-95f3-9bbdc1d98807";
+const API_BASE = "https://functions.poehali.dev/f75d7445-347c-442d-95f3-9bbdc1d98807";
+const API = (action: string) => `${API_BASE}?action=${action}`;
 
 interface User {
   id: number;
@@ -86,12 +87,12 @@ export default function Index() {
   });
 
   const fetchChats = useCallback(async (userId: number) => {
-    const res = await fetch(`${API}/chats`, { headers: apiHeaders(userId) });
+    const res = await fetch(API("chats"), { headers: apiHeaders(userId) });
     if (res.ok) setChats(await res.json());
   }, []);
 
   const fetchMessages = useCallback(async (chatId: number, userId: number, afterId = 0): Promise<Message[]> => {
-    const res = await fetch(`${API}/messages?chat_id=${chatId}&after_id=${afterId}`, {
+    const res = await fetch(`${API("messages")}&chat_id=${chatId}&after_id=${afterId}`, {
       headers: apiHeaders(userId),
     });
     if (res.ok) return res.json();
@@ -145,7 +146,7 @@ export default function Index() {
     if (!/^[a-z0-9_]+$/.test(u)) { setLoginError("Логин: только латиница, цифры и _"); return; }
     setLoginError("");
     setLoginLoading(true);
-    const res = await fetch(`${API}/login`, {
+    const res = await fetch(API("login"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: u, display_name: d }),
@@ -163,13 +164,13 @@ export default function Index() {
   const handleSearch = async (q: string) => {
     setSearchQuery(q);
     if (q.length < 1) { setSearchResults([]); return; }
-    const res = await fetch(`${API}/users?q=${encodeURIComponent(q)}`, { headers: apiHeaders(me?.id) });
+    const res = await fetch(`${API("users")}&q=${encodeURIComponent(q)}`, { headers: apiHeaders(me?.id) });
     if (res.ok) setSearchResults(await res.json());
   };
 
   const startChat = async (partner: User) => {
     if (!me) return;
-    const res = await fetch(`${API}/chats`, {
+    const res = await fetch(API("chats"), {
       method: "POST",
       headers: apiHeaders(me.id),
       body: JSON.stringify({ partner_id: partner.id }),
@@ -198,7 +199,7 @@ export default function Index() {
     const content = input.trim();
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-    await fetch(`${API}/messages`, {
+    await fetch(API("messages"), {
       method: "POST",
       headers: apiHeaders(me.id),
       body: JSON.stringify({ chat_id: activeChat.chat_id, content }),

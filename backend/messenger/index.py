@@ -29,11 +29,13 @@ def handler(event: dict, context) -> dict:
         return {"statusCode": 200, "headers": CORS_HEADERS, "body": ""}
 
     method = event.get("httpMethod", "GET")
-    path = event.get("path", "/")
     params = event.get("queryStringParameters") or {}
+    action = params.get("action", "")
+    path = "/" + action if action else event.get("path", "/")
     body = {}
     if event.get("body"):
         body = json.loads(event["body"])
+    print(f"[ROUTE] method={method} path={path} params={params}")
 
     user_id = event.get("headers", {}).get("X-User-Id") or params.get("user_id")
 
