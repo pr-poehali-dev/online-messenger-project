@@ -31,7 +31,7 @@ interface Message {
   created_at: string;
   sender_id: number;
   sender_name: string;
-  msg_type: "text" | "image" | "voice" | "sticker";
+  msg_type: "text" | "image" | "voice" | "sticker" | "music";
   file_url?: string | null;
   is_removed?: boolean;
 }
@@ -121,6 +121,7 @@ export default function Index() {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const musicInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const apiHeaders = (userId?: number) => ({
@@ -318,6 +319,26 @@ export default function Index() {
     e.target.value = "";
   };
 
+  // ── Music upload ──────────────────────────────────────────
+  const handleMusicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!me || !e.target.files?.[0] || !activeChat) return;
+    const file = e.target.files[0];
+    setUploadingFile(true);
+    const file_data = await fileToBase64(file);
+    const res = await fetch(API("upload-file"), {
+      method: "POST",
+      headers: apiHeaders(me.id),
+      body: JSON.stringify({ file_data, mime: file.type, filename: file.name }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const name = file.name.replace(/\.[^/.]+$/, "");
+      await doSend(`🎵 ${name}`, "music", data.file_url);
+    }
+    setUploadingFile(false);
+    e.target.value = "";
+  };
+
   // ── Voice ─────────────────────────────────────────────────
   const startRecording = async () => {
     if (!me || !activeChat) return;
@@ -457,7 +478,8 @@ export default function Index() {
   return (
     <div className="min-h-screen bg-white flex overflow-hidden" style={{ height: "100vh" }}>
       {/* Hidden inputs */}
-      <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx" className="hidden" onChange={handleFileUpload} />
+      <input ref={fileInputRef} type="file" accept="image/*,video/*,.pdf,.doc,.docx" className="hidden" onChange={handleFileUpload} />
+      <input ref={musicInputRef} type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.aac,.m4a" className="hidden" onChange={handleMusicUpload} />
       <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
       {/* Context menu */}
@@ -660,6 +682,17 @@ export default function Index() {
                           <audio controls src={msg.file_url} className="h-8 max-w-[220px]" />
                           {isLast && <div className={`text-xs mt-1 ${isMe ? "text-gray-400 text-right" : "text-gray-400 text-left"}`}>{formatTime(msg.created_at)}</div>}
                         </div>
+                      ) : msg.msg_type === "music" && msg.file_url ? (
+                        <div className={`rounded-2xl overflow-hidden ${isFirst && isMe ? "rounded-tr-sm" : ""} ${isFirst && !isMe ? "rounded-tl-sm" : ""} ${isMe ? "bg-gray-900" : "bg-gray-100"} px-4 py-3 min-w-[220px]`}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xl">🎵</span>
+                            <span className={`text-xs font-medium truncate max-w-[160px] ${isMe ? "text-gray-200" : "text-gray-700"}`}>
+                              {msg.content.replace("🎵 ", "")}
+                            </span>
+                          </div>
+                          <audio controls src={msg.file_url} className="w-full h-8" style={{ maxWidth: 240 }} />
+                          {isLast && <div className={`text-xs mt-1.5 ${isMe ? "text-gray-500 text-right" : "text-gray-400 text-left"}`}>{formatTime(msg.created_at)}</div>}
+                        </div>
                       ) : (
                         <div>
                           <div className={`px-4 py-2.5 text-sm leading-relaxed ${isMe ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}
@@ -728,6 +761,10 @@ export default function Index() {
                   <button onClick={() => fileInputRef.current?.click()} disabled={uploadingFile}
                     className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 transition-colors disabled:opacity-40">
                     <Icon name="Image" size={16} />
+                  </button>
+                  <button onClick={() => musicInputRef.current?.click()} disabled={uploadingFile}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 transition-colors disabled:opacity-40 text-base">
+                    🎵
                   </button>
                 </div>
 

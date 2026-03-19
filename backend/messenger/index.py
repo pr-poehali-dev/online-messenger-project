@@ -74,6 +74,14 @@ def handler(event: dict, context) -> dict:
             )
             row = cur.fetchone()
             conn.commit()
+            user_db_id = row[0]
+            # Проверяем бан
+            cur.execute(
+                f"SELECT 1 FROM {SCHEMA}.user_bans WHERE target_id = %s AND is_active = TRUE LIMIT 1",
+                (user_db_id,),
+            )
+            if cur.fetchone():
+                return resp(403, {"error": "Ваш аккаунт заблокирован администратором"})
             return resp(200, {
                 "id": row[0], "username": row[1], "display_name": row[2],
                 "avatar_url": row[3], "is_verified": row[4], "is_admin": row[5]
@@ -262,7 +270,8 @@ def handler(event: dict, context) -> dict:
             if not target_id:
                 return resp(400, {"error": "Укажи target_id"})
             cur.execute(
-                f"INSERT INTO {SCHEMA}.user_bans (banner_id, target_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                f"INSERT INTO {SCHEMA}.user_bans (banner_id, target_id, is_active) VALUES (%s, %s, TRUE) "
+                f"ON CONFLICT (banner_id, target_id) DO UPDATE SET is_active = TRUE",
                 (user_id, target_id),
             )
             conn.commit()
@@ -277,14 +286,6 @@ def handler(event: dict, context) -> dict:
             if not u or not u[0]:
                 return resp(403, {"error": "Только администратор"})
             target_id = body.get("target_id")
-            cur.execute(
-                f"UPDATE {SCHEMA}.user_bans SET banner_id = banner_id WHERE banner_id = %s AND target_id = %s",
-                (user_id, target_id),
-            )
-            # Мягкое удаление через пометку — просто убираем запись через доп. поле
-            cur.execute(
-                f"ALTER TABLE {SCHEMA}.user_bans ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
-            )
             cur.execute(
                 f"UPDATE {SCHEMA}.user_bans SET is_active = FALSE WHERE banner_id = %s AND target_id = %s",
                 (user_id, target_id),
